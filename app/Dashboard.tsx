@@ -216,7 +216,7 @@ export default function Dashboard({
           <NoMatch reset={reset} />
         ) : (
           <>
-            <section className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
               <KpiCard
                 label="Total Orders"
                 value={fmtInt(agg.kpis.orders)}
@@ -239,12 +239,6 @@ export default function Dashboard({
                 value={fmtInt(agg.kpis.customers)}
                 sub={`${fmtPct(agg.kpis.repeatRate)} returned ≥ 2x`}
                 emphasis={metric === "customers"}
-              />
-              <KpiCard
-                label="Avg Basket"
-                value={agg.kpis.avgUnits.toFixed(2)}
-                sub="units per order"
-                tone="muted"
               />
             </section>
 
