@@ -190,12 +190,8 @@ export function compactRows(values: string[][]): CompactRow[] {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const normName = name.toLowerCase().replace(/\s+/g, " ").trim();
     const normAddress = address.toLowerCase().replace(/\s+/g, " ").trim();
-    const custKey =
-      normName || normAddress
-        ? `${normName}|${normAddress}`
-        : `row-${no}-${i}`;
+    const custKey = normAddress || `row-${no}-${i}`;
     out.push({
       date,
       month,
