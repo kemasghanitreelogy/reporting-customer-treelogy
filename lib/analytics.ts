@@ -114,7 +114,8 @@ export function parseDate(s: string): Date | null {
 
 export function compactRows(values: string[][]): CompactRow[] {
   const out: CompactRow[] = [];
-  for (const row of values) {
+  for (let i = 0; i < values.length; i++) {
+    const row = values[i];
     const no = (row[0] ?? "").trim();
     if (!/^\d+$/.test(no)) continue;
     const date = (row[1] ?? "").trim();
@@ -132,10 +133,7 @@ export function compactRows(values: string[][]): CompactRow[] {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const normName = name.toLowerCase().trim().replace(/\s+/g, " ");
-    const custKey =
-      normName ||
-      `unknown|${address.toLowerCase().slice(0, 40).trim()}`;
+    const custKey = `row-${no}-${i}`;
     out.push({
       date,
       month,
