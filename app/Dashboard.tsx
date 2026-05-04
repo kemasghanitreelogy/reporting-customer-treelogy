@@ -149,9 +149,6 @@ export default function Dashboard({
     const totalQty = orders.reduce((s, o) => s + o.qty, 0);
     const latestSegment: Segment =
       latest.segment === "Other" ? "New" : latest.segment;
-    const platforms = new Set(
-      orders.map((o) => o.platform).filter(Boolean),
-    );
     let phone = "";
     let region = "";
     for (const o of sorted) {
@@ -176,7 +173,6 @@ export default function Dashboard({
       totalOrders: orders.length,
       firstDate: minD,
       lastDate: maxD,
-      platforms: [...platforms],
       orders: sorted,
     };
   }, [selectedCustKey, rows]);
@@ -1487,7 +1483,6 @@ type CustomerDetail = {
   totalOrders: number;
   firstDate: Date | null;
   lastDate: Date | null;
-  platforms: string[];
   orders: CompactRow[];
 };
 
@@ -1615,21 +1610,12 @@ function CustomerModal({
           className="border-t px-5 py-4 sm:px-7"
           style={{ borderColor: COLORS.border }}
         >
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Stat
               label="Orders"
               value={fmtInt(renderCustomer.totalOrders)}
             />
             <Stat label="Units" value={fmtInt(renderCustomer.totalQty)} />
-            <Stat
-              label="Channels"
-              value={
-                renderCustomer.platforms.length === 0
-                  ? "—"
-                  : renderCustomer.platforms.join(" · ")
-              }
-              small
-            />
           </div>
           <div
             className="mt-3 text-[11px]"
@@ -1662,12 +1648,6 @@ function CustomerModal({
             style={{ overscrollBehavior: "contain" }}
           >
             {renderCustomer.orders.map((o, i) => {
-              const platformColor =
-                o.platform.toLowerCase() === "tokopedia"
-                  ? COLORS.tokopedia
-                  : o.platform.toLowerCase() === "shopee"
-                    ? COLORS.shopee
-                    : COLORS.muted;
               const segColor =
                 o.segment === "VIP"
                   ? COLORS.vip
@@ -1684,18 +1664,8 @@ function CustomerModal({
                       <div className="text-sm font-medium">
                         {formatRowDate(o.date)}
                       </div>
-                      <div
-                        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"
-                        style={{ color: COLORS.muted }}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: platformColor }}
-                          />
-                          {o.platform || "—"}
-                        </span>
-                        {o.segment !== "Other" && (
+                      {o.segment !== "Other" && (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                             style={{
@@ -1705,8 +1675,8 @@ function CustomerModal({
                           >
                             {o.segment}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold tabular-nums">
