@@ -219,7 +219,6 @@ export default function Dashboard({
                     ? `${agg.kpis.monthsCovered} months · last ${agg.kpis.lastMonthLabel}`
                     : `${agg.kpis.monthsCovered} months in range`
                 }
-                delta={agg.kpis.momOrders}
                 emphasis={metric === "orders"}
               />
               <KpiCard
