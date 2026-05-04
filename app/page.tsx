@@ -2,7 +2,7 @@ import { getSheetValues, getSpreadsheetMeta } from "@/lib/sheets";
 import { compactRows } from "@/lib/analytics";
 import Dashboard from "./Dashboard";
 
-export const revalidate = Number(process.env.REVALIDATE_SECONDS ?? 300);
+export const revalidate = 300;
 
 function requireEnv(name: string): string {
   const v = process.env[name];
