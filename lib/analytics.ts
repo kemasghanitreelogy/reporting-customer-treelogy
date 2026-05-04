@@ -433,9 +433,9 @@ export function aggregate(rows: CompactRow[]) {
     if (!c.phone) c.phone = "—";
     if (!c.region) c.region = "—";
   }
-  const topCustomers = [...custMap.values()]
-    .sort((a, b) => b.qty - a.qty || b.orders - a.orders)
-    .slice(0, 10);
+  const topCustomers = [...custMap.values()].sort(
+    (a, b) => b.orders - a.orders,
+  );
 
   const segmentCustomers = new Map<Segment, number>();
   for (const c of custMap.values()) {

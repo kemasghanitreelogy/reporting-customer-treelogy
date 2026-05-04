@@ -267,27 +267,7 @@ export default function Dashboard({
               </Card>
             </section>
 
-            <section className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-2">
-              <RankCard
-                eyebrow="Catalog"
-                title="Top products"
-                hint={
-                  metric === "customers"
-                    ? "Unique customers per SKU"
-                    : "SKU appears across all order lines"
-                }
-                items={agg.topProducts.map((p) => ({
-                  key: p.sku,
-                  label: p.sku,
-                  primary: metric === "customers" ? p.customers : p.orders,
-                  sub:
-                    metric === "customers"
-                      ? `${fmtInt(p.orders)} orders`
-                      : `≈ ${fmtInt(p.customers)} customers`,
-                  color: COLORS.brand,
-                }))}
-                metricLabel={metric === "customers" ? "customers" : "orders"}
-              />
+            <section className="mt-4 sm:mt-6">
               <RankCard
                 eyebrow="Geography"
                 title="Top regions"
@@ -315,11 +295,11 @@ export default function Dashboard({
             <section className="mt-4 sm:mt-6">
               <Card>
                 <CardHeader
-                  eyebrow="Loyalty"
-                  title="Top 10 customers"
-                  hint="Tap a card to see full order history"
+                  eyebrow="Customers"
+                  title="All customers"
+                  hint="Tap a row to see full order history"
                 />
-                <TopCustomers
+                <CustomerList
                   items={agg.topCustomers}
                   onSelect={setSelectedCustKey}
                 />
@@ -1289,118 +1269,163 @@ function RankCard({
   );
 }
 
-function TopCustomers({
+function CustomerList({
   items,
   onSelect,
 }: {
   items: Aggregates["topCustomers"];
   onSelect: (custKey: string) => void;
 }) {
-  const sorted = [...items].sort((a, b) => b.orders - a.orders);
+  const [tierFilter, setTierFilter] = useState<"all" | Segment>("all");
+
+  const filtered = useMemo(() => {
+    const sorted = [...items].sort((a, b) => b.orders - a.orders);
+    if (tierFilter === "all") return sorted;
+    return sorted.filter((c) => c.latestSegment === tierFilter);
+  }, [items, tierFilter]);
+
+  const ROW_H = 64;
+  const MAX_H = 600;
+  const OVERSCAN = 6;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    setScrollTop(0);
+  }, [tierFilter]);
+
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+  const endIdx = Math.min(
+    filtered.length,
+    Math.ceil((scrollTop + MAX_H) / ROW_H) + OVERSCAN,
+  );
+  const visible = filtered.slice(startIdx, endIdx);
+
+  const tiers: { value: "all" | Segment; label: string; color?: string }[] = [
+    { value: "all", label: "All" },
+    { value: "New", label: "New", color: COLORS.new },
+    { value: "Returning", label: "Returning", color: COLORS.returning },
+    { value: "VIP", label: "VIP", color: COLORS.vip },
+  ];
+
   return (
-    <>
-      <div className="space-y-2 sm:hidden">
-        {sorted.map((c, i) => (
-          <button
-            type="button"
-            key={`${c.custKey}-${i}-m`}
-            onClick={() => onSelect(c.custKey)}
-            className="w-full cursor-pointer rounded-xl border p-3 text-left transition active:scale-[0.99]"
-            style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-[10px] font-medium tabular-nums"
-                    style={{ color: COLORS.muted }}
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="truncate text-sm font-medium">
-                    {c.name}
-                  </span>
-                  <TierTag segment={c.latestSegment} />
-                </div>
-                <div
-                  className="mt-0.5 truncate text-[11px]"
-                  style={{ color: COLORS.muted }}
-                >
-                  {c.region}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-right">
-                <div className="text-base font-semibold tabular-nums leading-none">
-                  {fmtInt(c.orders)}
-                </div>
-                <ChevronRight />
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-      <div
-        className="hidden overflow-hidden rounded-xl border sm:block"
-        style={{ borderColor: COLORS.border }}
-      >
-        <table className="w-full text-sm">
-          <thead>
-            <tr
-              className="text-left text-[11px] uppercase tracking-wider"
-              style={{ color: COLORS.muted, backgroundColor: COLORS.bg }}
-            >
-              <th className="px-4 py-2 font-medium">#</th>
-              <th className="px-4 py-2 font-medium">Customer</th>
-              <th className="px-4 py-2 font-medium">Tier</th>
-              <th className="px-4 py-2 font-medium">Region</th>
-              <th className="px-4 py-2 text-right font-medium">Orders</th>
-              <th className="w-8 px-2 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((c, i) => (
-              <tr
-                key={`${c.custKey}-${i}`}
-                onClick={() => onSelect(c.custKey)}
-                className="cursor-pointer border-t transition hover:bg-[rgba(0,0,0,0.02)]"
-                style={{ borderColor: COLORS.border }}
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {tiers.map((t) => {
+            const active = tierFilter === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTierFilter(t.value)}
+                className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-medium transition"
+                style={{
+                  borderColor: active ? COLORS.brand : COLORS.border,
+                  backgroundColor: active ? COLORS.brand : COLORS.surface,
+                  color: active ? "#fff" : COLORS.ink,
+                }}
               >
-                <td
-                  className="px-4 py-3 text-[12px]"
-                  style={{ color: COLORS.muted }}
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{c.name}</div>
-                  <div
-                    className="text-[11px]"
-                    style={{ color: COLORS.muted }}
-                  >
-                    {c.phone}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <TierTag segment={c.latestSegment} />
-                </td>
-                <td
-                  className="px-4 py-3 text-[13px]"
-                  style={{ color: COLORS.muted }}
-                >
-                  {c.region}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                  {fmtInt(c.orders)}
-                </td>
-                <td className="pr-3 text-right">
-                  <ChevronRight />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                {t.color && (
+                  <span
+                    className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle"
+                    style={{
+                      backgroundColor: active ? "#fff" : t.color,
+                    }}
+                  />
+                )}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        <span
+          className="text-[11px] tabular-nums"
+          style={{ color: COLORS.muted }}
+        >
+          {fmtInt(filtered.length)} customers
+        </span>
       </div>
-    </>
+
+      <div
+        ref={scrollRef}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        className="overflow-y-auto rounded-xl border"
+        style={{
+          maxHeight: MAX_H,
+          borderColor: COLORS.border,
+          overscrollBehavior: "contain",
+        }}
+      >
+        {filtered.length === 0 ? (
+          <div
+            className="flex h-40 items-center justify-center text-sm"
+            style={{ color: COLORS.muted }}
+          >
+            No customers in this tier
+          </div>
+        ) : (
+          <div
+            style={{ height: filtered.length * ROW_H, position: "relative" }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: startIdx * ROW_H,
+                left: 0,
+                right: 0,
+              }}
+            >
+              {visible.map((c, i) => {
+                const idx = startIdx + i;
+                return (
+                  <button
+                    key={c.custKey}
+                    type="button"
+                    onClick={() => onSelect(c.custKey)}
+                    className="flex w-full cursor-pointer items-center gap-3 border-b px-3 text-left transition hover:bg-[rgba(0,0,0,0.02)] sm:px-4"
+                    style={{
+                      height: ROW_H,
+                      borderColor: COLORS.border,
+                    }}
+                  >
+                    <span
+                      className="w-8 shrink-0 text-[11px] tabular-nums"
+                      style={{ color: COLORS.muted }}
+                    >
+                      {String(idx + 1).padStart(
+                        Math.max(2, String(filtered.length).length),
+                        "0",
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {c.name}
+                        </span>
+                        <TierTag segment={c.latestSegment} />
+                      </div>
+                      <div
+                        className="mt-0.5 truncate text-[11px]"
+                        style={{ color: COLORS.muted }}
+                      >
+                        {c.region}
+                        {c.phone && c.phone !== "—" ? ` · ${c.phone}` : ""}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      {fmtInt(c.orders)}
+                    </span>
+                    <ChevronRight />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
