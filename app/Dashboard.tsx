@@ -936,7 +936,7 @@ function MonthlyChart({
   if (data.length === 0) return <Empty />;
   const W = 1180;
   const H = 340;
-  const P = { l: 56, r: 56, t: 32, b: 44 };
+  const P = { l: 56, r: 32, t: 36, b: 44 };
   const innerW = W - P.l - P.r;
   const innerH = H - P.t - P.b;
 
@@ -1006,13 +1006,7 @@ function MonthlyChart({
             const top = y(total);
             const tokoH = (t / tickMax) * innerH;
             const shopeeH = (s / tickMax) * innerH;
-            const labelText = fmtInt(total);
-            const approxLabelHalfW = (labelText.length * 7) / 2;
             const center = x(i) + innerBarW / 2;
-            const labelX = Math.max(
-              P.l + approxLabelHalfW,
-              Math.min(W - P.r - approxLabelHalfW, center),
-            );
             return (
               <g key={d.month}>
                 <rect
@@ -1033,16 +1027,6 @@ function MonthlyChart({
                   opacity={0.95}
                 />
                 <text
-                  x={labelX}
-                  y={top - 8}
-                  fontSize={12}
-                  textAnchor="middle"
-                  fontWeight={600}
-                  fill={COLORS.ink}
-                >
-                  {labelText}
-                </text>
-                <text
                   x={center}
                   y={H - P.b + 22}
                   fontSize={12}
@@ -1052,6 +1036,29 @@ function MonthlyChart({
                   {d.label}
                 </text>
               </g>
+            );
+          })}
+          {data.map((d, i) => {
+            const t = valToko(d);
+            const s = valShopee(d);
+            const total = t + s;
+            const top = y(total);
+            const barH = ((t + s) / tickMax) * innerH;
+            const center = x(i) + innerBarW / 2;
+            const labelText = fmtInt(total);
+            const insideBar = barH >= 30;
+            return (
+              <text
+                key={`label-${d.month}`}
+                x={center}
+                y={insideBar ? top + 20 : top - 8}
+                fontSize={12}
+                textAnchor="middle"
+                fontWeight={600}
+                fill={insideBar ? "#FFFFFF" : COLORS.ink}
+              >
+                {labelText}
+              </text>
             );
           })}
           <line
