@@ -1941,7 +1941,8 @@ function niceTicks(max: number, count: number): number[] {
       break;
     }
   }
+  const maxTick = Math.ceil(max / step) * step;
   const ticks: number[] = [];
-  for (let v = 0; v <= max + step / 2; v += step) ticks.push(v);
+  for (let v = 0; v <= maxTick; v += step) ticks.push(v);
   return ticks;
 }
