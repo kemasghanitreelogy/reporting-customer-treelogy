@@ -4,15 +4,12 @@ import { getSheetValues, getSpreadsheetMeta } from "@/lib/sheets";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env variable: ${name}`);
+const DEFAULT_SPREADSHEET_ID = (() => {
+  const v = process.env.SPREADSHEET_ID;
+  if (!v) throw new Error("Missing required env variable: SPREADSHEET_ID");
   return v;
-}
-
-const DEFAULT_SPREADSHEET_ID = requireEnv("SPREADSHEET_ID");
-const DEFAULT_SHEET_NAME = process.env.DEFAULT_SHEET_NAME ?? "Sheet1";
-const DEFAULT_RANGE = process.env.SHEET_RANGE;
+})();
+const DEFAULT_RANGE = "Purchase Order!A4:U";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -24,8 +21,7 @@ export async function GET(req: NextRequest) {
     const sheetTitles =
       meta.sheets?.map((s) => s.properties?.title ?? "").filter(Boolean) ?? [];
 
-    const range =
-      rangeParam ?? DEFAULT_RANGE ?? sheetTitles[0] ?? DEFAULT_SHEET_NAME;
+    const range = rangeParam ?? DEFAULT_RANGE ?? sheetTitles[0] ?? "Sheet1";
     const values = await getSheetValues(spreadsheetId, range);
 
     return NextResponse.json(

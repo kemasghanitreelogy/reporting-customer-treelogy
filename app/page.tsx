@@ -4,15 +4,12 @@ import Dashboard from "./Dashboard";
 
 export const revalidate = 300;
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env variable: ${name}`);
+const SPREADSHEET_ID = (() => {
+  const v = process.env.SPREADSHEET_ID;
+  if (!v) throw new Error("Missing required env variable: SPREADSHEET_ID");
   return v;
-}
-
-const SPREADSHEET_ID = requireEnv("SPREADSHEET_ID");
-const SHEET_RANGE = requireEnv("SHEET_RANGE");
-const DEFAULT_TITLE = process.env.DEFAULT_TITLE ?? "Customer Data";
+})();
+const SHEET_RANGE = "Purchase Order!A4:U";
 
 export default async function Page() {
   const [meta, values] = await Promise.all([
@@ -20,7 +17,7 @@ export default async function Page() {
     getSheetValues(SPREADSHEET_ID, SHEET_RANGE),
   ]);
   const rows = compactRows(values);
-  const title = meta.properties?.title ?? DEFAULT_TITLE;
+  const title = meta.properties?.title ?? "Customer Data";
 
   return (
     <Dashboard
