@@ -49,7 +49,7 @@ const DEFAULTS = {
   period: "all" as Period,
   channel: "all" as Channel,
   segment: "all" as SegmentFilter,
-  metric: "orders" as Metric,
+  metric: "customers" as Metric,
 };
 
 export default function Dashboard({
@@ -233,12 +233,12 @@ export default function Dashboard({
                 value={fmtInt(agg.kpis.units)}
                 sub={`Avg ${agg.kpis.avgUnits.toFixed(2)} units / order`}
                 delta={agg.kpis.momUnits}
-                emphasis={metric === "units"}
               />
               <KpiCard
                 label="Unique Customers"
                 value={fmtInt(agg.kpis.customers)}
                 sub={`${fmtPct(agg.kpis.repeatRate)} returned ≥ 2x`}
+                emphasis={metric === "customers"}
               />
               <KpiCard
                 label="Avg Basket"
@@ -253,8 +253,8 @@ export default function Dashboard({
                 <CardHeader
                   eyebrow="Performance"
                   title={
-                    metric === "units"
-                      ? "Monthly units by platform"
+                    metric === "customers"
+                      ? "Monthly customers by platform"
                       : "Monthly orders by platform"
                   }
                   hint="Tokopedia + Shopee, stacked"
@@ -289,18 +289,22 @@ export default function Dashboard({
               <RankCard
                 eyebrow="Catalog"
                 title="Top products"
-                hint="SKU appears across all order lines"
+                hint={
+                  metric === "customers"
+                    ? "Unique customers per SKU"
+                    : "SKU appears across all order lines"
+                }
                 items={agg.topProducts.map((p) => ({
                   key: p.sku,
                   label: p.sku,
-                  primary: metric === "units" ? p.units : p.orders,
+                  primary: metric === "customers" ? p.customers : p.orders,
                   sub:
-                    metric === "units"
+                    metric === "customers"
                       ? `${fmtInt(p.orders)} orders`
-                      : `≈ ${fmtInt(p.units)} units`,
+                      : `≈ ${fmtInt(p.customers)} customers`,
                   color: COLORS.brand,
                 }))}
-                metricLabel={metric === "units" ? "units" : "orders"}
+                metricLabel={metric === "customers" ? "customers" : "orders"}
               />
               <RankCard
                 eyebrow="Geography"
@@ -309,18 +313,20 @@ export default function Dashboard({
                 items={agg.topRegions.map((r) => ({
                   key: r.name,
                   label: r.name,
-                  primary: metric === "units" ? r.units : r.orders,
+                  primary: metric === "customers" ? r.customers : r.orders,
                   sub: fmtPct(
-                    (metric === "units" ? r.units : r.orders) /
+                    (metric === "customers" ? r.customers : r.orders) /
                       Math.max(
-                        metric === "units" ? agg.kpis.units : agg.kpis.orders,
+                        metric === "customers"
+                          ? agg.kpis.customers
+                          : agg.kpis.orders,
                         1,
                       ),
                     1,
                   ),
                   color: COLORS.returning,
                 }))}
-                metricLabel={metric === "units" ? "units" : "orders"}
+                metricLabel={metric === "customers" ? "customers" : "orders"}
               />
             </section>
 
@@ -333,7 +339,6 @@ export default function Dashboard({
                 />
                 <TopCustomers
                   items={agg.topCustomers}
-                  metric={metric}
                   onSelect={setSelectedCustKey}
                 />
               </Card>
@@ -466,8 +471,8 @@ function FilterBar({
     { value: "VIP", label: "VIP customer", dot: COLORS.vip },
   ];
   const metricOptions: DropdownOption<Metric>[] = [
+    { value: "customers", label: "View by customers" },
     { value: "orders", label: "View by orders" },
-    { value: "units", label: "View by units" },
   ];
 
   return (
@@ -501,7 +506,9 @@ function FilterBar({
           value={metric}
           options={metricOptions}
           onChange={setMetric}
-          buttonLabel={(o) => (o.value === "orders" ? "Orders" : "Units")}
+          buttonLabel={(o) =>
+            o.value === "customers" ? "Customers" : "Orders"
+          }
         />
         {isFiltered && (
           <button
@@ -942,12 +949,13 @@ function MonthlyChart({
 
   const valToko = (
     d: Aggregates["monthlySeries"][number],
-  ): number => (metric === "units" ? d.tokopediaUnits : d.tokopediaOrders);
+  ): number =>
+    metric === "customers" ? d.tokopediaCustomers : d.tokopediaOrders;
   const valShopee = (
     d: Aggregates["monthlySeries"][number],
   ): number =>
-    metric === "units"
-      ? d.shopeeUnits + d.otherUnits
+    metric === "customers"
+      ? d.shopeeCustomers + d.otherCustomers
       : d.shopeeOrders + d.otherOrders;
 
   const max = Math.max(...data.map((d) => valToko(d) + valShopee(d)), 1);
@@ -1100,16 +1108,16 @@ function PlatformDonut({
         ? COLORS.shopee
         : COLORS.muted;
   const total = split.reduce(
-    (s, x) => s + (metric === "units" ? x.units : x.orders),
+    (s, x) => s + (metric === "customers" ? x.customers : x.orders),
     0,
   );
   const items = split.map((s) => ({
     name: s.name,
-    value: metric === "units" ? s.units : s.orders,
+    value: metric === "customers" ? s.customers : s.orders,
     sub:
-      metric === "units"
+      metric === "customers"
         ? `${fmtInt(s.orders)} orders`
-        : `${fmtInt(s.units)} units`,
+        : `${fmtInt(s.customers)} customers`,
     color: colorFor(s.name),
   }));
 
@@ -1119,7 +1127,7 @@ function PlatformDonut({
         items={items}
         size={172}
         centerTop={fmtInt(total)}
-        centerSub={metric === "units" ? "units" : "orders"}
+        centerSub={metric === "customers" ? "customers" : "orders"}
       />
       <div className="flex w-full flex-col gap-3">
         {items.map((it) => (
@@ -1166,16 +1174,16 @@ function CustomerMix({
         ? COLORS.returning
         : COLORS.new;
   const total = mix.reduce(
-    (s, x) => s + (metric === "units" ? x.units : x.orders),
+    (s, x) => s + (metric === "customers" ? x.customers : x.orders),
     0,
   );
   const items = mix.map((m) => ({
     name: m.type,
-    value: metric === "units" ? m.units : m.orders,
+    value: metric === "customers" ? m.customers : m.orders,
     sub:
-      metric === "units"
+      metric === "customers"
         ? `${fmtInt(m.orders)} orders`
-        : `${fmtInt(m.units)} units`,
+        : `${fmtInt(m.customers)} customers`,
     color: colorFor(m.type),
   }));
   return (
@@ -1302,26 +1310,20 @@ function RankCard({
 
 function TopCustomers({
   items,
-  metric,
   onSelect,
 }: {
   items: Aggregates["topCustomers"];
-  metric: Metric;
   onSelect: (custKey: string) => void;
 }) {
-  const sorted = [...items].sort((a, b) => {
-    if (metric === "orders") return b.orders - a.orders || b.qty - a.qty;
-    return b.qty - a.qty || b.orders - a.orders;
-  });
+  const sorted = [...items].sort(
+    (a, b) => b.orders - a.orders || b.qty - a.qty,
+  );
   return (
     <>
       <div className="space-y-2 sm:hidden">
         {sorted.map((c, i) => {
-          const big = metric === "units" ? c.qty : c.orders;
-          const small =
-            metric === "units"
-              ? `${fmtInt(c.orders)} orders`
-              : `${fmtInt(c.qty)} units`;
+          const big = c.orders;
+          const small = `${fmtInt(c.qty)} units`;
           return (
             <button
               type="button"
@@ -1421,14 +1423,10 @@ function TopCustomers({
                 >
                   {c.region}
                 </td>
-                <td
-                  className={`px-4 py-3 text-right tabular-nums ${metric === "orders" ? "font-semibold" : ""}`}
-                >
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">
                   {fmtInt(c.orders)}
                 </td>
-                <td
-                  className={`px-4 py-3 text-right tabular-nums ${metric === "units" ? "font-semibold" : ""}`}
-                >
+                <td className="px-4 py-3 text-right tabular-nums">
                   {fmtInt(c.qty)}
                 </td>
                 <td className="pr-3 text-right">

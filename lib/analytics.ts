@@ -69,7 +69,7 @@ export type CompactRow = {
 
 export type Aggregates = ReturnType<typeof aggregate>;
 
-export type Metric = "orders" | "units";
+export type Metric = "orders" | "customers";
 
 function detectProvince(address: string): string {
   const a = address.toLowerCase();
@@ -253,10 +253,18 @@ export function aggregate(rows: CompactRow[]) {
     tokopediaUnits: number;
     shopeeUnits: number;
     otherUnits: number;
+    tokopediaCustomers: number;
+    shopeeCustomers: number;
+    otherCustomers: number;
     orders: number;
     units: number;
+    customers: number;
   };
   const monthly = new Map<string, MonthBucket>();
+  const monthlyCustKeys = new Map<
+    string,
+    { toko: Set<string>; shopee: Set<string>; other: Set<string>; all: Set<string> }
+  >();
   for (const r of rows) {
     const cur =
       monthly.get(r.month) ??
@@ -269,8 +277,12 @@ export function aggregate(rows: CompactRow[]) {
         tokopediaUnits: 0,
         shopeeUnits: 0,
         otherUnits: 0,
+        tokopediaCustomers: 0,
+        shopeeCustomers: 0,
+        otherCustomers: 0,
         orders: 0,
         units: 0,
+        customers: 0,
       } as MonthBucket);
     cur.orders += 1;
     cur.units += r.qty;
@@ -286,20 +298,45 @@ export function aggregate(rows: CompactRow[]) {
       cur.otherUnits += r.qty;
     }
     monthly.set(r.month, cur);
+
+    const mc =
+      monthlyCustKeys.get(r.month) ??
+      { toko: new Set<string>(), shopee: new Set<string>(), other: new Set<string>(), all: new Set<string>() };
+    mc.all.add(r.custKey);
+    if (p === "tokopedia") mc.toko.add(r.custKey);
+    else if (p === "shopee") mc.shopee.add(r.custKey);
+    else mc.other.add(r.custKey);
+    monthlyCustKeys.set(r.month, mc);
+  }
+  for (const bucket of monthly.values()) {
+    const mc = monthlyCustKeys.get(bucket.month);
+    if (!mc) continue;
+    bucket.tokopediaCustomers = mc.toko.size;
+    bucket.shopeeCustomers = mc.shopee.size;
+    bucket.otherCustomers = mc.other.size;
+    bucket.customers = mc.all.size;
   }
   const monthlySeries = [...monthly.values()].sort((a, b) =>
     a.month.localeCompare(b.month),
   );
 
   const platformMap = new Map<string, { orders: number; units: number }>();
+  const platformCustKeys = new Map<string, Set<string>>();
   for (const r of rows) {
     const cur = platformMap.get(r.platform) ?? { orders: 0, units: 0 };
     cur.orders += 1;
     cur.units += r.qty;
     platformMap.set(r.platform, cur);
+    if (!platformCustKeys.has(r.platform))
+      platformCustKeys.set(r.platform, new Set());
+    platformCustKeys.get(r.platform)!.add(r.custKey);
   }
   const platformSplit = [...platformMap.entries()]
-    .map(([name, v]) => ({ name, ...v }))
+    .map(([name, v]) => ({
+      name,
+      ...v,
+      customers: platformCustKeys.get(name)?.size ?? 0,
+    }))
     .sort((a, b) => b.orders - a.orders);
 
   const mixMap = new Map<string, { orders: number; units: number }>();
@@ -309,14 +346,9 @@ export function aggregate(rows: CompactRow[]) {
     cur.units += r.qty;
     mixMap.set(r.segment, cur);
   }
-  const customerMix = (["New", "Returning", "VIP"] as Segment[])
-    .filter((t) => mixMap.has(t))
-    .map((t) => ({
-      type: t,
-      ...(mixMap.get(t) as { orders: number; units: number }),
-    }));
 
   const productMap = new Map<string, { orders: number; estUnits: number }>();
+  const productCustKeys = new Map<string, Set<string>>();
   for (const r of rows) {
     if (!r.skus.length) continue;
     const per = r.qty / r.skus.length;
@@ -325,6 +357,8 @@ export function aggregate(rows: CompactRow[]) {
       cur.orders += 1;
       cur.estUnits += per;
       productMap.set(sku, cur);
+      if (!productCustKeys.has(sku)) productCustKeys.set(sku, new Set());
+      productCustKeys.get(sku)!.add(r.custKey);
     }
   }
   const topProducts = [...productMap.entries()]
@@ -332,19 +366,28 @@ export function aggregate(rows: CompactRow[]) {
       sku,
       orders: v.orders,
       units: Math.round(v.estUnits),
+      customers: productCustKeys.get(sku)?.size ?? 0,
     }))
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 10);
 
   const regionMap = new Map<string, { orders: number; units: number }>();
+  const regionCustKeys = new Map<string, Set<string>>();
   for (const r of rows) {
     const cur = regionMap.get(r.region) ?? { orders: 0, units: 0 };
     cur.orders += 1;
     cur.units += r.qty;
     regionMap.set(r.region, cur);
+    if (!regionCustKeys.has(r.region))
+      regionCustKeys.set(r.region, new Set());
+    regionCustKeys.get(r.region)!.add(r.custKey);
   }
   const topRegions = [...regionMap.entries()]
-    .map(([name, v]) => ({ name, ...v }))
+    .map(([name, v]) => ({
+      name,
+      ...v,
+      customers: regionCustKeys.get(name)?.size ?? 0,
+    }))
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 10);
 
@@ -397,6 +440,22 @@ export function aggregate(rows: CompactRow[]) {
   const topCustomers = [...custMap.values()]
     .sort((a, b) => b.qty - a.qty || b.orders - a.orders)
     .slice(0, 10);
+
+  const segmentCustomers = new Map<Segment, number>();
+  for (const c of custMap.values()) {
+    segmentCustomers.set(
+      c.latestSegment,
+      (segmentCustomers.get(c.latestSegment) ?? 0) + 1,
+    );
+  }
+  const customerMix = (["New", "Returning", "VIP"] as Segment[])
+    .filter((t) => mixMap.has(t) || segmentCustomers.has(t))
+    .map((t) => ({
+      type: t,
+      orders: mixMap.get(t)?.orders ?? 0,
+      units: mixMap.get(t)?.units ?? 0,
+      customers: segmentCustomers.get(t) ?? 0,
+    }));
 
   let returningCustomers = 0;
   for (const c of custMap.values()) if (c.orders >= 2) returningCustomers += 1;
