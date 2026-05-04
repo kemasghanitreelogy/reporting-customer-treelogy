@@ -91,11 +91,45 @@ function detectProvince(address: string): string {
   return "Other / Unknown";
 }
 
-function classifyByQty(qty: number): Segment {
-  if (qty >= 4) return "VIP";
-  if (qty >= 2) return "Returning";
-  if (qty >= 1) return "New";
+function mapCustomerType(s: string): Segment {
+  const t = s.trim().toLowerCase();
+  if (!t) return "Other";
+  if (t.includes("vip")) return "VIP";
+  if (t.includes("returning")) return "Returning";
+  if (t.includes("new")) return "New";
   return "Other";
+}
+
+function buildHeaderMap(headerRow: string[]): Map<string, number> {
+  const map = new Map<string, number>();
+  headerRow.forEach((h, i) => {
+    const key = (h ?? "").trim().toLowerCase();
+    if (key && !map.has(key)) map.set(key, i);
+  });
+  return map;
+}
+
+function findCol(headers: Map<string, number>, ...names: string[]): number {
+  for (const n of names) {
+    const idx = headers.get(n.toLowerCase());
+    if (typeof idx === "number") return idx;
+  }
+  return -1;
+}
+
+function findHeaderRow(values: string[][]): number {
+  const limit = Math.min(values.length, 10);
+  for (let i = 0; i < limit; i++) {
+    const row = values[i] ?? [];
+    if (
+      row.some(
+        (c) => (c ?? "").trim().toLowerCase() === "customer type",
+      )
+    ) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 function blankIfNa(v: string): string {
@@ -113,22 +147,45 @@ export function parseDate(s: string): Date | null {
 }
 
 export function compactRows(values: string[][]): CompactRow[] {
+  if (values.length === 0) return [];
+  const headerRowIdx = findHeaderRow(values);
+  if (headerRowIdx < 0) return [];
+  const headers = buildHeaderMap(values[headerRowIdx]);
+
+  const idxNo = findCol(headers, "no", "no.");
+  const idxDate = findCol(headers, "date");
+  const idxPlatform = findCol(headers, "platform");
+  const idxName = findCol(headers, "recipient name", "customer name", "name");
+  const idxAddress = findCol(headers, "address");
+  const idxQty = findCol(headers, "qty", "quantity");
+  const idxType = findCol(headers, "customer type");
+  const idxPhone = findCol(headers, "phone number", "phone");
+  const idxProduct = findCol(
+    headers,
+    "product name & qty",
+    "product name",
+    "product",
+  );
+
+  const cell = (row: string[], idx: number): string =>
+    idx >= 0 ? (row[idx] ?? "").toString() : "";
+
   const out: CompactRow[] = [];
-  for (let i = 0; i < values.length; i++) {
+  for (let i = headerRowIdx + 1; i < values.length; i++) {
     const row = values[i];
-    const no = (row[0] ?? "").trim();
+    const no = cell(row, idxNo).trim();
     if (!/^\d+$/.test(no)) continue;
-    const date = (row[1] ?? "").trim();
+    const date = cell(row, idxDate).trim();
     const m = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (!m) continue;
     const month = `${m[3]}-${String(m[2]).padStart(2, "0")}`;
     const monthLabel = `${MONTH_LABEL[+m[2] - 1]} ${m[3].slice(2)}`;
-    const platform = (row[2] ?? "").trim();
-    const name = (row[3] ?? "").trim();
-    const address = (row[4] ?? "").trim();
-    const qty = Number.parseInt(row[5] ?? "0", 10) || 0;
-    const phone = blankIfNa(row[7] ?? "");
-    const productLine = blankIfNa(row[8] ?? "");
+    const platform = cell(row, idxPlatform).trim();
+    const name = cell(row, idxName).trim();
+    const address = cell(row, idxAddress).trim();
+    const qty = Number.parseInt(cell(row, idxQty) || "0", 10) || 0;
+    const phone = blankIfNa(cell(row, idxPhone));
+    const productLine = blankIfNa(cell(row, idxProduct));
     const skus = productLine
       .split(",")
       .map((s) => s.trim())
@@ -140,7 +197,7 @@ export function compactRows(values: string[][]): CompactRow[] {
       monthLabel,
       platform,
       qty,
-      segment: classifyByQty(qty),
+      segment: mapCustomerType(cell(row, idxType)),
       name,
       phone,
       region: detectProvince(address),
