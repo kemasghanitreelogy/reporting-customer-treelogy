@@ -146,7 +146,6 @@ export default function Dashboard({
     const maxD = dates.length
       ? new Date(Math.max(...dates.map((d) => +d)))
       : null;
-    const totalQty = orders.reduce((s, o) => s + o.qty, 0);
     const latestSegment: Segment =
       latest.segment === "Other" ? "New" : latest.segment;
     let phone = "";
@@ -169,7 +168,6 @@ export default function Dashboard({
       phone: phone || "—",
       region: region || "—",
       tier: latestSegment,
-      totalQty,
       totalOrders: orders.length,
       firstDate: minD,
       lastDate: maxD,
@@ -212,7 +210,7 @@ export default function Dashboard({
           <NoMatch reset={reset} />
         ) : (
           <>
-            <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+            <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <KpiCard
                 label="Total Orders"
                 value={fmtInt(agg.kpis.orders)}
@@ -223,12 +221,6 @@ export default function Dashboard({
                 }
                 delta={agg.kpis.momOrders}
                 emphasis={metric === "orders"}
-              />
-              <KpiCard
-                label="Units Sold"
-                value={fmtInt(agg.kpis.units)}
-                sub={`Avg ${agg.kpis.avgUnits.toFixed(2)} units / order`}
-                delta={agg.kpis.momUnits}
               />
               <KpiCard
                 label="Unique Customers"
@@ -337,7 +329,6 @@ export default function Dashboard({
         )}
 
         <Footer
-          agg={agg}
           fetchedAt={fetched}
           activeRows={filtered.length}
           totalRows={rows.length}
@@ -1305,62 +1296,48 @@ function TopCustomers({
   items: Aggregates["topCustomers"];
   onSelect: (custKey: string) => void;
 }) {
-  const sorted = [...items].sort(
-    (a, b) => b.orders - a.orders || b.qty - a.qty,
-  );
+  const sorted = [...items].sort((a, b) => b.orders - a.orders);
   return (
     <>
       <div className="space-y-2 sm:hidden">
-        {sorted.map((c, i) => {
-          const big = c.orders;
-          const small = `${fmtInt(c.qty)} units`;
-          return (
-            <button
-              type="button"
-              key={`${c.custKey}-${i}-m`}
-              onClick={() => onSelect(c.custKey)}
-              className="w-full cursor-pointer rounded-xl border p-3 text-left transition active:scale-[0.99]"
-              style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[10px] font-medium tabular-nums"
-                      style={{ color: COLORS.muted }}
-                    >
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="truncate text-sm font-medium">
-                      {c.name}
-                    </span>
-                    <TierTag segment={c.latestSegment} />
-                  </div>
-                  <div
-                    className="mt-0.5 truncate text-[11px]"
+        {sorted.map((c, i) => (
+          <button
+            type="button"
+            key={`${c.custKey}-${i}-m`}
+            onClick={() => onSelect(c.custKey)}
+            className="w-full cursor-pointer rounded-xl border p-3 text-left transition active:scale-[0.99]"
+            style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-medium tabular-nums"
                     style={{ color: COLORS.muted }}
                   >
-                    {c.region}
-                  </div>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="truncate text-sm font-medium">
+                    {c.name}
+                  </span>
+                  <TierTag segment={c.latestSegment} />
                 </div>
-                <div className="flex items-center gap-2 text-right">
-                  <div>
-                    <div className="text-base font-semibold tabular-nums leading-none">
-                      {fmtInt(big)}
-                    </div>
-                    <div
-                      className="mt-1 text-[11px] tabular-nums"
-                      style={{ color: COLORS.muted }}
-                    >
-                      {small}
-                    </div>
-                  </div>
-                  <ChevronRight />
+                <div
+                  className="mt-0.5 truncate text-[11px]"
+                  style={{ color: COLORS.muted }}
+                >
+                  {c.region}
                 </div>
               </div>
-            </button>
-          );
-        })}
+              <div className="flex items-center gap-2 text-right">
+                <div className="text-base font-semibold tabular-nums leading-none">
+                  {fmtInt(c.orders)}
+                </div>
+                <ChevronRight />
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
       <div
         className="hidden overflow-hidden rounded-xl border sm:block"
@@ -1377,7 +1354,6 @@ function TopCustomers({
               <th className="px-4 py-2 font-medium">Tier</th>
               <th className="px-4 py-2 font-medium">Region</th>
               <th className="px-4 py-2 text-right font-medium">Orders</th>
-              <th className="px-4 py-2 text-right font-medium">Units</th>
               <th className="w-8 px-2 py-2"></th>
             </tr>
           </thead>
@@ -1415,9 +1391,6 @@ function TopCustomers({
                 </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums">
                   {fmtInt(c.orders)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {fmtInt(c.qty)}
                 </td>
                 <td className="pr-3 text-right">
                   <ChevronRight />
@@ -1479,7 +1452,6 @@ type CustomerDetail = {
   phone: string;
   region: string;
   tier: Segment;
-  totalQty: number;
   totalOrders: number;
   firstDate: Date | null;
   lastDate: Date | null;
@@ -1610,12 +1582,11 @@ function CustomerModal({
           className="border-t px-5 py-4 sm:px-7"
           style={{ borderColor: COLORS.border }}
         >
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:gap-3">
             <Stat
               label="Orders"
               value={fmtInt(renderCustomer.totalOrders)}
             />
-            <Stat label="Units" value={fmtInt(renderCustomer.totalQty)} />
           </div>
           <div
             className="mt-3 text-[11px]"
@@ -1654,6 +1625,12 @@ function CustomerModal({
                   : o.segment === "Returning"
                     ? COLORS.returning
                     : COLORS.new;
+              const platformColor =
+                o.platform.toLowerCase() === "tokopedia"
+                  ? COLORS.tokopedia
+                  : o.platform.toLowerCase() === "shopee"
+                    ? COLORS.shopee
+                    : COLORS.muted;
               return (
                 <li
                   key={`${o.date}-${i}`}
@@ -1679,21 +1656,16 @@ function CustomerModal({
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold tabular-nums">
-                        {fmtInt(o.qty)}{" "}
-                        <span
-                          className="text-[11px] font-normal"
-                          style={{ color: COLORS.muted }}
-                        >
-                          units
-                        </span>
-                      </div>
-                      <div
-                        className="mt-0.5 max-w-[180px] truncate text-[11px]"
-                        style={{ color: COLORS.muted }}
+                      <span
+                        className="inline-flex items-center gap-1.5 text-sm font-medium"
+                        style={{ color: COLORS.ink }}
                       >
-                        {o.skus.length ? o.skus.join(", ") : "—"}
-                      </div>
+                        <span
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ backgroundColor: platformColor }}
+                        />
+                        {o.platform || "—"}
+                      </span>
                     </div>
                   </div>
                 </li>
@@ -1868,12 +1840,10 @@ function Empty() {
 }
 
 function Footer({
-  agg,
   fetchedAt,
   activeRows,
   totalRows,
 }: {
-  agg: Aggregates;
   fetchedAt: Date;
   activeRows: number;
   totalRows: number;
@@ -1884,8 +1854,7 @@ function Footer({
       style={{ borderColor: COLORS.border, color: COLORS.muted }}
     >
       Source: Customer Data · Purchase Order ·{" "}
-      {fmtInt(activeRows)} of {fmtInt(totalRows)} orders shown ·{" "}
-      {fmtInt(agg.kpis.units)} units · synced{" "}
+      {fmtInt(activeRows)} of {fmtInt(totalRows)} orders shown · synced{" "}
       {fetchedAt.toLocaleString("en-GB", { hour12: false })}.
     </footer>
   );
