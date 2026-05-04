@@ -935,8 +935,8 @@ function MonthlyChart({
 }) {
   if (data.length === 0) return <Empty />;
   const W = 1180;
-  const H = 320;
-  const P = { l: 56, r: 24, t: 16, b: 44 };
+  const H = 340;
+  const P = { l: 56, r: 56, t: 32, b: 44 };
   const innerW = W - P.l - P.r;
   const innerH = H - P.t - P.b;
 
@@ -964,13 +964,20 @@ function MonthlyChart({
         className="-mx-1 overflow-x-auto pb-1"
         style={{ scrollbarWidth: "thin" }}
       >
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          role="img"
-          aria-label="Monthly performance by platform"
-          style={{ width: "100%", minWidth: 560, height: "auto" }}
-          preserveAspectRatio="xMinYMid meet"
-        >
+        <div className="inline-block min-w-full px-3">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            role="img"
+            aria-label="Monthly performance by platform"
+            style={{
+              width: "100%",
+              minWidth: 540,
+              height: "auto",
+              display: "block",
+              overflow: "visible",
+            }}
+            preserveAspectRatio="xMinYMid meet"
+          >
           {ticks.map((t) => (
             <g key={t}>
               <line
@@ -999,6 +1006,13 @@ function MonthlyChart({
             const top = y(total);
             const tokoH = (t / tickMax) * innerH;
             const shopeeH = (s / tickMax) * innerH;
+            const labelText = fmtInt(total);
+            const approxLabelHalfW = (labelText.length * 7) / 2;
+            const center = x(i) + innerBarW / 2;
+            const labelX = Math.max(
+              P.l + approxLabelHalfW,
+              Math.min(W - P.r - approxLabelHalfW, center),
+            );
             return (
               <g key={d.month}>
                 <rect
@@ -1019,17 +1033,17 @@ function MonthlyChart({
                   opacity={0.95}
                 />
                 <text
-                  x={x(i) + innerBarW / 2}
+                  x={labelX}
                   y={top - 8}
                   fontSize={12}
                   textAnchor="middle"
                   fontWeight={600}
                   fill={COLORS.ink}
                 >
-                  {fmtInt(total)}
+                  {labelText}
                 </text>
                 <text
-                  x={x(i) + innerBarW / 2}
+                  x={center}
                   y={H - P.b + 22}
                   fontSize={12}
                   textAnchor="middle"
@@ -1048,7 +1062,8 @@ function MonthlyChart({
             stroke={COLORS.border}
             strokeWidth={1}
           />
-        </svg>
+          </svg>
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-[11px] sm:text-xs">
         <Legend color={COLORS.tokopedia} label="Tokopedia" />
