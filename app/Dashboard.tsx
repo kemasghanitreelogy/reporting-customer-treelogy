@@ -266,7 +266,7 @@ export default function Dashboard({
               </Card>
             </section>
 
-            <section className="mt-4 sm:mt-6">
+            <section className="mt-4 grid items-start gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-2">
               <RankCard
                 eyebrow="Geography"
                 title="Top regions"
@@ -289,9 +289,6 @@ export default function Dashboard({
                 }))}
                 metricLabel={metric === "customers" ? "customers" : "orders"}
               />
-            </section>
-
-            <section className="mt-4 sm:mt-6">
               <Card>
                 <CardHeader
                   eyebrow="Customers"
